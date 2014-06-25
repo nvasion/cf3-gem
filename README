@@ -32,7 +32,7 @@ In your cfengine3's promises.cf place the location of your gem.cf library in the
       
             # COPBL/Custom libraries
             "cfengine_stdlib.cf",
-            "gem.cf"
+            "gem.cf",
       };
       
 
