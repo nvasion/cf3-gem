@@ -1,0 +1,140 @@
+# gem.cf
+# Compiled by Kellan Strong (nvasion) 06/24/2014
+# For Ruby Gem installation
+# And For Fluentd's Gem installation
+# Content converted from pip.cf by swesterveld
+# Contents for your CFEngine library.
+#
+# Version .0.0.1
+
+bundle common gem
+{
+    classes:
+        "have_gem_ruby" expression => fileexists("/usr/bin/gem");
+        "have_fluent_gem" expression => fileexists("/usr/lib/fluent/ruby/bin/fluent-gem");
+
+        !have_gem_ruby::
+            "no_gem" expression => returnszero("/usr/bin/which gem", "noshell");
+
+
+    vars:
+
+        #
+        # Set the command to run gem and fluent-gem
+        #
+        no_gem.!have_gem_ruby::
+            "command" string => execresult("/usr/bin/which gem", "noshell");
+
+        have_gem_ruby::
+            "command" string => "/usr/bin/gem";
+
+        have_fluent_gem::
+            "fluent_command" string => "/usr/lib/fluent/ruby/bin/fluent-gem";
+}
+#
+# Ruby's gem installation
+#
+body package_method gem_pkg
+{
+    package_changes => "bulk";
+    package_list_command => "$(gem.command) search";
+    package_list_update_ifelapsed => 0;
+
+    package_list_name_regex => "^([^=]+)";
+    package_list_version_regex => "^[^=]+";
+
+    package_installed_regex => ".*";
+    package_name_convention => "$(name)";
+    package_delete_convention => "$(name)";
+
+    package_add_command => "$(gem.command) install";
+    package_delete_command => "$(gem.command) uninstall";
+}
+#
+# Fluentd's gem installation
+#
+body package_method fluent_gem_pkg
+{
+    package_changes => "bulk";
+    package_list_command => "$(gem.fluent_command) search";
+    package_list_update_ifelapsed => 0;
+
+    package_list_name_regex => "^([^=]+)";
+    package_list_version_regex => "^[^=]+";
+
+    package_installed_regex => ".*";
+    package_name_convention => "$(name)";
+    package_delete_convention => "$(name)";
+
+    package_add_command => "$(gem.fluent_command) install";
+    package_delete_command => "$(gem.fluent_command) uninstall";
+}
+#
+# Install Ruby Gems
+#
+#
+bundle agent gem_install_pkg(pkg_array)
+{
+    vars:
+        any::
+            "gem_install" slist => getindices($(pkg_array));
+
+    packages:
+        have_gem_ruby::
+            "$(gem_install)"
+                comment => "Install Ruby Gems",
+
+                package_method => gem_pkg,
+                package_policy => "addupdate",
+                package_select => "==",
+                package_version => "$($(pkg_array)[$(gem_install)])";
+}
+#
+# Install Fluentd Gems
+#
+#
+bundle agent fluent_gem_install_pkg(pkg_array)
+{
+    vars:
+        any::
+            "fluent_gem_install" slist => getindices($(pkg_array));
+
+    packages:
+        have_fluent_gem::
+            "$(fluent_gem_install)"
+                comment => "Install Fluentd Gems",
+
+                package_method => fluent_gem_pkg,
+                package_policy => "addupdate",
+                package_select => "==",
+                package_version => "$($(pkg_array)[$(fluent_gem_install)])";
+}
+
+#
+# Uninstall Ruby Gems
+#
+bundle agent gem_uninstall_pkg(pkg_list)
+{
+    packages:
+        have_gem_ruby::
+            "$(pkg_list)"
+                comment => "Remove Ruby Gems",
+
+                package_method => gem_pkg,
+                package_policy => "delete",
+                package_select => "==";
+}
+#
+# Uninstall Fluentd Gems
+#
+bundle agent fluent_gem_uninstall_pkg(pkg_list)
+{
+    packages:
+        have_fluent_gem::
+            "$(pkg_list)"
+                comment => "Remove Fluentd Gems",
+
+                package_method => fluent_gem_pkg,
+                package_policy => "delete",
+                package_select => "==";
+}
